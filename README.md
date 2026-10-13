@@ -1,29 +1,23 @@
 # SupplyGuard AI
 
-SupplyGuard predicts **shipment delay in days** using the DataCo Supply Chain dataset.
+SupplyGuard predicts **shipment delay in days** using the DataCo Supply Chain dataset. The target is:
 
 `delay_days = Days for shipping (real) - Days for shipment (scheduled)`
 
-Positive predictions indicate late delivery, zero indicates on-schedule delivery, and negative predictions indicate earlier-than-scheduled delivery. This is a retrospective ML project, not a guarantee of real-world delivery performance.
+Positive values mean late delivery; zero means the actual delivery matched the scheduled duration; negative values mean earlier than scheduled. This is a retrospective dataset project, not a guarantee of real-world delivery performance.
 
-## Repository contents
+## Project files
 
 - `Data.py` — data loading, target construction, and chronological holdout split.
-- `features.py` — shared preprocessing and feature-schema validation.
+- `features.py` — shared preprocessing for categorical and numeric features.
 - `train.py` — baseline comparison, chronological validation, and model selection.
-- `evaluate.py` — holdout metrics and diagnostics.
+- `evaluate.py` — final holdout metrics and diagnostics.
 - `api.py` — FastAPI prediction API with liveness/readiness checks.
-- `01_eda.ipynb` — exploratory analysis notebook.
-- `tests/` — API contract and pipeline tests.
-- `PERFORMANCE_REVIEW.md` — engineering and modeling review.
+- `tests/` — data, preprocessing, request-schema, and endpoint contract tests.
 
-## Dataset setup
+## Setup and run
 
-The original project uses the DataCo Supply Chain dataset at `data/DataCoSupplyChainDataset.csv`.
-
-The raw CSV (~96 MB) is intentionally not duplicated into this repository during migration. Place a licensed/local copy at that path before training, or adjust the `--data` argument to its location. Keep datasets and generated reports out of Git unless you have a clear redistribution right and a reason to version them.
-
-## Local setup (Windows PowerShell)
+From the repository root, use Windows PowerShell:
 
 ```powershell
 python -m venv .venv
@@ -31,38 +25,34 @@ python -m venv .venv
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 python -m pytest tests/ -q
+python train.py --data data/DataCoSupplyChainDataset.csv --trials 5
+python evaluate.py --data data/DataCoSupplyChainDataset.csv
+uvicorn api:app --reload
 ```
 
 On Linux/macOS, activate with `source .venv/bin/activate`.
 
-## Train and evaluate
-
-```powershell
-python train.py --data data/DataCoSupplyChainDataset.csv --trials 5
-python evaluate.py --data data/DataCoSupplyChainDataset.csv
-```
-
-Training may be expensive on CPU. Start with a small number of trials to verify the pipeline before increasing it. The final chronological holdout should remain reserved for final evaluation; model selection uses a validation window from the training period.
-
-## Run the API
-
-```powershell
-uvicorn api:app --reload
-```
+Training can be computationally expensive on CPU. Start with a small number of Optuna trials to verify the environment, then increase trials only after the pipeline runs correctly.
 
 Open `http://127.0.0.1:8000/docs` to try the API.
 
-- `GET /health`: process liveness.
-- `GET /ready`: checks whether a compatible model artifact is available.
-- `GET /model-info`: information about the loaded model and target.
-- `POST /predict`: estimates shipping delay in days.
+## API endpoints
 
-The API expects `artifacts/supplyguard_pipeline.joblib` by default. Set `SUPPLYGUARD_MODEL_PATH` to use another path. Retrain using the current pipeline before relying on older serialized files; legacy `final_model.joblib` and `encoder.joblib` files may not match the current inference contract.
+- `GET /health`: process liveness; does not require a model artifact.
+- `GET /ready`: checks that the configured model artifact exists and has a compatible schema; returns HTTP 503 when not ready.
+- `GET /model-info`: selected model, target, and feature count (requires a valid artifact).
+- `POST /predict`: returns an estimated delay in days, an easy-to-read status, the target definition, and a limitation note.
 
-## Generated files and artifacts
+All prediction inputs are explicit. Unknown fields and non-finite numeric values are rejected rather than silently ignored. The `payment_type` API field maps to the source dataset's `Type` feature.
 
-Model artifacts, MLflow tracking databases, and generated HTML EDA reports are reproducibility outputs rather than source-of-truth code. The legacy artifacts and MLflow database remain in the original `ml-journey` project and can be copied locally when needed. They are not required to run unit tests. Never load joblib/pickle artifacts from an untrusted source.
+The API expects `artifacts/supplyguard_pipeline.joblib` by default. Set `SUPPLYGUARD_MODEL_PATH` to use another artifact path. Retrain with the current `train.py` after feature or preprocessing changes; the older `final_model.joblib` and `encoder.joblib` files are not compatible with this API contract.
 
-## Important limitations
+## Evaluation discipline
 
-The dataset contains fields that may not be known at the time an operational prediction is needed. Define a prediction timestamp and audit feature availability before presenting this as an early-warning system. Historical estimates do not guarantee performance on current carriers, routes, or warehouses. Full retraining and holdout verification against the entire dataset have not been completed as part of this repository migration.
+The model is selected on a chronological validation window from the training period. The later chronological holdout is reserved for final reporting. Compare against a median baseline and report MAE, RMSE, and R². Do not claim improvement unless a repeatable run demonstrates it.
+
+The source dataset contains fields that may not be available at an operational prediction time. Define the prediction timestamp and retain only features available then before presenting this as an early-warning system. Historical performance does not guarantee performance on current carriers, routes, or warehouses; validate on newer operational data before using predictions for decisions.
+
+## Reproducibility and safety
+
+Model artifacts and experiment databases are build outputs. Keep preprocessing and model versions together, retrain after schema changes, and never load untrusted `joblib` files. Do not commit credentials, generated model files, MLflow databases, or oversized derived reports unless they are specifically required as tracked source assets.
