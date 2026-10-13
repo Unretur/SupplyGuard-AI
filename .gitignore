@@ -30,9 +30,3 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Generated SupplyGuard artifacts
-artifacts/
-mlruns/
-mlflow.db
-reports/*.html
-data/*.csv
