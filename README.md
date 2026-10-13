@@ -25,6 +25,7 @@ python -m venv .venv
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 python -m pytest tests/ -q
+# Place the dataset at data/DataCoSupplyChainDataset.csv first
 python train.py --data data/DataCoSupplyChainDataset.csv --trials 5
 python evaluate.py --data data/DataCoSupplyChainDataset.csv
 uvicorn api:app --reload
@@ -45,7 +46,7 @@ Open `http://127.0.0.1:8000/docs` to try the API.
 
 All prediction inputs are explicit. Unknown fields and non-finite numeric values are rejected rather than silently ignored. The `payment_type` API field maps to the source dataset's `Type` feature.
 
-The API expects `artifacts/supplyguard_pipeline.joblib` by default. Set `SUPPLYGUARD_MODEL_PATH` to use another artifact path. Retrain with the current `train.py` after feature or preprocessing changes; the older `final_model.joblib` and `encoder.joblib` files are not compatible with this API contract.
+The API expects `artifacts/supplyguard_pipeline.joblib` by default. Set `SUPPLYGUARD_MODEL_PATH` to use another artifact path. Retrain with the current `train.py` after feature or preprocessing changes. The legacy `final_model.joblib` and `encoder.joblib` are preserved in the original project archive for reference, but are not compatible with this API contract.
 
 ## Evaluation discipline
 
