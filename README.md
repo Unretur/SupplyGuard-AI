@@ -56,4 +56,4 @@ The source dataset contains fields that may not be available at an operational p
 
 ## Reproducibility and safety
 
-Model artifacts and experiment databases are build outputs. Keep preprocessing and model versions together, retrain after schema changes, and never load untrusted `joblib` files. Do not commit credentials, generated model files, MLflow databases, or oversized derived reports unless they are specifically required as tracked source assets.
+The copied `final_model.joblib`, `encoder.joblib`, and `mlflow.db` are legacy assets from the original project. Keep newly generated artifacts and local experiment output out of Git unless intentionally versioned. Never load untrusted `joblib` files, and never commit credentials or secrets.
